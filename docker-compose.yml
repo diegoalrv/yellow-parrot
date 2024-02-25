@@ -6,3 +6,4 @@ services:
       - "8001:8001"  # Cambia a 8000 para coincidir con el puerto predeterminado de Uvicorn
     volumes:
       - .:/app
+      - ./credentials:/app/credentials
