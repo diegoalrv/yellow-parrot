@@ -1,0 +1,4 @@
+langchain
+langchain-openai
+fastapi>=0.65.0
+uvicorn>=0.13.0
