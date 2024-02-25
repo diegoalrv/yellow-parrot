@@ -1,9 +1,15 @@
 import langchain
 import json
 
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_community.document_loaders import WebBaseLoader
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains import create_retrieval_chain
+
+from langchain_community.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 def main():
     print(langchain.__version__)
@@ -18,19 +24,42 @@ def main():
     openai_api_key = data['API_KEY']
 
     llm = ChatOpenAI(openai_api_key=openai_api_key)
+    question = """A que se dedica la empresa 'Eliza'?"""
 
-    print(llm.invoke("how can langsmith help with testing?"))
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are world class technical documentation writer."),
-        ("user", "{input}")
-    ])
+    print('Sin info extra')
+    print()
+    print(llm.invoke(question))
+    print()
+    print()
+    print('Con info extra')
+    print()
 
-    output_parser = StrOutputParser()
+    loader = WebBaseLoader("https://elizadeco.cl/pages/nuestra-empresa")
+    docs = loader.load()
 
-    chain = prompt | llm | output_parser
+    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
 
-    invoke = chain.invoke({"input": "how can langsmith help with testing?"})
-    print(invoke)
+    text_splitter = RecursiveCharacterTextSplitter()
+    documents = text_splitter.split_documents(docs)
+    vector = FAISS.from_documents(documents, embeddings)
+    
+    prompt = ChatPromptTemplate.from_template("""Answer the following question based only on the provided context:
+
+    <context>
+    {context}
+    </context>
+
+    Question: {input}""")
+
+    document_chain = create_stuff_documents_chain(llm, prompt)
+    
+    retriever = vector.as_retriever()
+    retrieval_chain = create_retrieval_chain(retriever, document_chain)
+    
+    response = retrieval_chain.invoke({"input": question})
+    print(response["answer"])
+    
+
     pass
 
 if __name__ == '__main__':
